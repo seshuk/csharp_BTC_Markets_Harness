@@ -11,7 +11,7 @@
         public const string ORDER_TRADE_HISTORY_PATH = "/order/trade/history";
         public const string ACCOUNT_BALANCE_PATH = "/account/balance";
         public const string MARKET_ORDERBOOK_PATH = "/market/BTC/AUD/orderbook";
-        public const string MARKET_TICK_PATH = "/market/BTC/AUD/tick";
+        public const string MARKET_TICK_PATH = "/market/{0}/AUD/tick";
         public const string MARKET_TRADES_PATH = "/market/BTC/AUD/trades";
     }
 }

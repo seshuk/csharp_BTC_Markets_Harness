@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Text;
 using BTC_Markets_Harness.Constants;
 using BTC_Markets_Harness.Helpers;
@@ -9,6 +10,8 @@ namespace BTC_Markets_Harness
 {
     internal class Program
     {
+        const decimal numberConverter = 100000000;    // one hundred million
+
         private static void Main(string[] args)
         {
             //Market Data - GET requests (No Authentication Required)
@@ -17,8 +20,25 @@ namespace BTC_Markets_Harness
             //Console.WriteLine(GetMarketOrderBook());
 
             //Account Data - GET request (Authentication Required)
-            //Console.WriteLine(RetrieveAccountBalance());
 
+            //Console.WriteLine(RetrieveAccountBalance());
+            var tick = GetMarketTickObject(string.Format(MethodConstants.MARKET_TICK_PATH, "ETH"));
+            Console.WriteLine("ETH/AUD = {0}", tick.LastPrice);
+
+            tick = GetMarketTickObject(string.Format(MethodConstants.MARKET_TICK_PATH, "XRP"));
+            Console.WriteLine("XRP/AUD = {0}", tick.LastPrice);
+
+            Console.WriteLine("Curreny\t\tBalance\t\tPending\n");
+            var accounts = RetrieveAccounts();
+            decimal totalAud = 0M;
+            foreach(var acount in accounts)
+            {
+                Console.WriteLine("{0}\t\t{1}\t\t{2}\n", acount.Currency, acount.Balance/numberConverter, acount.PendingFunds/numberConverter);
+                if(acount.Currency == "XRP")
+                totalAud = ((acount.Balance / numberConverter) * tick.BestAsk);
+            }
+
+            Console.WriteLine("Total Value: {0}", totalAud);
             //Trading Data and Actions - POST request (Authentication Required)
             //With Default Params
             //Console.WriteLine(OrderHistory());
@@ -70,6 +90,30 @@ namespace BTC_Markets_Harness
             return response;
         }
 
+        public static IRestResponse SendRequestReturnResponse(string action, string postData)
+        {
+            IRestResponse response = null;
+            try
+            {
+                //get the epoch timestamp to be used as the nonce
+                var timestamp = ConversionHelper.ReturnCurrentTimeStampInMilliseconds();
+
+                // create the string that needs to be signed
+                var stringToSign = BuildStringToSign(action, postData, timestamp);
+
+                // build signature to be included in the http header
+                var signature = SecurityHelper.ComputeHash(ApplicationConstants.PRIVATE_KEY, stringToSign);
+
+                response = QueryWithResponse(postData, action, signature, timestamp);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+            }
+
+            return response;
+        }
+
         /// <summary>
         ///     Uses the RestSharp library to generate the request (POST or GET by default) to BTC Markets.
         ///     I used this library for ease of use and cleanliness
@@ -104,7 +148,28 @@ namespace BTC_Markets_Harness
             return queryResult.Content;
         }
 
+        public static IRestResponse QueryWithResponse(string data, string action, string signature, string timestamp)
+        {
+            var client = new RestClient(ApplicationConstants.BASEURL);
 
+            var request = new RestRequest(action);
+            client.ClearHandlers();
+            client.AddHandler("application/json", new JsonDeserializer());
+            request.Method = data != null ? Method.POST : Method.GET;
+
+            request = BuildRequestHeaders(request, signature, timestamp);
+
+            if (data != null)
+            {
+                request.AddParameter("application/json", data, ParameterType.RequestBody);
+            }
+
+            var queryResult = client.Execute(request);
+
+            //JsonDeserializer deserializer = new JsonDeserializer();
+            //var accounts = deserializer.Deserialize<List<Account>>(queryResult);
+            return queryResult;
+        }
         /// <summary>
         ///     Buils up the string that will be signed and used as part of the request
         /// </summary>
@@ -156,6 +221,11 @@ namespace BTC_Markets_Harness
             return SendRequest(MethodConstants.MARKET_TICK_PATH, null);
         }
 
+        public static CurrencyTicker GetMarketTickObject(string action)
+        {
+            var deserializer = new JsonDeserializer();
+            return deserializer.Deserialize<CurrencyTicker>(SendRequestReturnResponse(action, null));
+        }
         /// <summary>
         /// GET: Requests the current market OrderBook from BTC Markets
         /// </summary>
@@ -186,6 +256,12 @@ namespace BTC_Markets_Harness
         {
             return SendRequest(MethodConstants.ACCOUNT_BALANCE_PATH, null);
 
+        }
+
+        public static List<Account> RetrieveAccounts()
+        {
+            JsonDeserializer deserializer = new JsonDeserializer();
+            return deserializer.Deserialize<List<Account>>( SendRequestReturnResponse(MethodConstants.ACCOUNT_BALANCE_PATH, null));
         }
 
         #endregion
@@ -309,5 +385,23 @@ namespace BTC_Markets_Harness
 
         #endregion
 
+    }
+
+    public class Account
+    {
+        public decimal Balance { get; set; }
+        public decimal PendingFunds { get; set; }
+        public string Currency { get; set; }
+    }
+
+    public class CurrencyTicker
+    {
+        public decimal BestBid { get; set; }
+        public decimal BestAsk { get; set; }
+        public decimal LastPrice { get; set; }
+        public string Currency { get; set; }
+        public string Instrument { get; set; }
+        public int Timestamp { get; set; }
+        public decimal Volume24h { get; set; }
     }
 }
