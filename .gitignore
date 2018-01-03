@@ -187,3 +187,7 @@ FakesAssemblies/
 GeneratedArtifacts/
 _Pvt_Extensions/
 ModelManifest.xml
+/.vs/BTC_Markets_Harness/v15/Server/sqlite3/storage.ide-wal
+/.vs/BTC_Markets_Harness/v15/Server/sqlite3/storage.ide-shm
+/.vs/BTC_Markets_Harness/v15/Server/sqlite3/storage.ide
+/.vs/BTC_Markets_Harness/v15/Server/sqlite3/db.lock
