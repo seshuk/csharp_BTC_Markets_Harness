@@ -11,7 +11,7 @@ namespace BTC_Markets_Harness
     internal class Program
     {
         const decimal numberConverter = 100000000;    // one hundred million
-
+        const decimal coinBaseEth = 0.010025M;
         private static void Main(string[] args)
         {
             //Market Data - GET requests (No Authentication Required)
@@ -22,23 +22,29 @@ namespace BTC_Markets_Harness
             //Account Data - GET request (Authentication Required)
 
             //Console.WriteLine(RetrieveAccountBalance());
-            var tick = GetMarketTickObject(string.Format(MethodConstants.MARKET_TICK_PATH, "ETH"));
-            Console.WriteLine("ETH/AUD = {0}", tick.LastPrice);
-
-            tick = GetMarketTickObject(string.Format(MethodConstants.MARKET_TICK_PATH, "XRP"));
-            Console.WriteLine("XRP/AUD = {0}", tick.LastPrice);
-
-            Console.WriteLine("Curreny\t\tBalance\t\tPending\n");
-            var accounts = RetrieveAccounts();
-            decimal totalAud = 0M;
-            foreach(var acount in accounts)
+            UpdateData();
+            var time = DateTime.Now;
+            do
             {
-                Console.WriteLine("{0}\t\t{1}\t\t{2}\n", acount.Currency, acount.Balance/numberConverter, acount.PendingFunds/numberConverter);
-                if(acount.Currency == "XRP")
-                totalAud = ((acount.Balance / numberConverter) * tick.BestAsk);
-            }
+                if (Console.KeyAvailable)
+                {
+                    if (Console.ReadKey().Key == ConsoleKey.Escape)
+                        break;
+                    else if (Console.ReadKey().Key == ConsoleKey.Enter)
+                        UpdateData();
 
-            Console.WriteLine("Total Value: {0}", totalAud);
+                }
+
+                if (DateTime.Now - time > TimeSpan.FromMinutes(1))
+                {
+                    time = DateTime.Now;
+                    UpdateData();
+                }
+                else
+                {
+                    continue;
+                }
+            } while (true);
             //Trading Data and Actions - POST request (Authentication Required)
             //With Default Params
             //Console.WriteLine(OrderHistory());
@@ -58,6 +64,51 @@ namespace BTC_Markets_Harness
 
 
             Console.ReadKey();
+        }
+
+        private static void UpdateData()
+        {
+            var currenyValues = new Dictionary<string, decimal>();
+            Console.Clear();
+            Console.WriteLine(DateTime.Now.ToShortTimeString());
+            var tick = GetMarketTickObject(string.Format(MethodConstants.MARKET_TICK_PATH, "AUD"));
+            Console.Write("AUD/AUD = {0, 10}\t", tick.LastPrice);
+            currenyValues.Add("AUD", tick.LastPrice);
+
+            //tick = GetMarketTickObject(string.Format(MethodConstants.MARKET_TICK_PATH, "BTC"));
+            //Console.Write("BTC/AUD = {0, 10}\t", tick.LastPrice);
+            //currenyValues.Add("BTC", tick.LastPrice);
+
+            tick = GetMarketTickObject(string.Format(MethodConstants.MARKET_TICK_PATH, "ETH"));
+            Console.Write("ETH/AUD = {0, 10}\t", tick.LastPrice);
+            currenyValues.Add("ETH", tick.LastPrice);
+
+            tick = GetMarketTickObject(string.Format(MethodConstants.MARKET_TICK_PATH, "XRP"));
+            currenyValues.Add("XRP", tick.LastPrice);
+            Console.WriteLine("XRP/AUD = {0, 10}", tick.LastPrice);
+
+            //Console.WriteLine("Curreny\t\tBalance\t\tPending\n");
+            var accounts = RetrieveAccounts();
+            decimal totalAud = 0M;
+            foreach (var acount in accounts)
+            {
+                //Console.WriteLine("{0}\t\t{1}\t\t{2}\n", acount.Currency, acount.Balance/numberConverter, acount.PendingFunds/numberConverter);
+                if(acount.Balance > 0)// acount.Currency == "XRP" || acount.Currency == "ETH")
+                {
+                    totalAud += ((acount.Balance / numberConverter) * currenyValues[acount.Currency]);
+                    if (acount.Currency == "AUD")
+                    {
+                        Console.Write("{0}     : {1, 10}\t", acount.Currency, (acount.Balance / numberConverter).ToString("0.00"));
+                    }
+                    else
+                    {
+                        Console.Write("{0}     : {1, 10}\t", acount.Currency, (acount.Balance / numberConverter));
+                    }
+                    
+                }
+            }
+
+            Console.WriteLine("\n\nTotal Value:\t\t\t {0,10}", totalAud);
         }
 
         /// <summary>
